@@ -7,7 +7,7 @@ from torch.optim import Adam
 
 import generators as g
 import loaders.load_vgrnn as vd
-from models.euler import EulerGCN
+from models.euler_serial import EulerGCN
 from utils import get_score
 
 torch.set_num_threads(8)

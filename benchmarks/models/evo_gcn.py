@@ -1,6 +1,8 @@
 from types import SimpleNamespace as SN
 
 import torch 
+
+# Obtained from https://github.com/IBM/EvolveGCN
 from EvolveGCN.egcn_h import EGCN as EGCN_h
 from EvolveGCN.egcn_o import EGCN as EGCN_o
 

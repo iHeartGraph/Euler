@@ -14,7 +14,7 @@ RED = '' # Location of redteam.txt
 SRC = '' # Location of auth.txt
 DST = '' # Directory to save output files to
 
-assert RED and SRC and DST, 'Please download the LANL data set, and mark in the code where it is:\nLines 13-15 of cyber/loaders/split.py'
+assert RED and SRC and DST, 'Please download the LANL data set, and mark in the code where it is:\nLines 13-15 of /lanl_experiments/loaders/split.py'
 
 DELTA = 10000
 DAY = 60**2 * 24

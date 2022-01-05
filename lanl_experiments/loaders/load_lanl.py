@@ -14,8 +14,8 @@ DATE_OF_EVIL_LANL = 150885
 FILE_DELTA = 10000
 
 # Input where LANL data cleaned with .clean_lanl.py is stored
-LANL_FOLDER = '/mnt/raid0_24TB/isaiah/data/LANL/split/' #TODO
-assert LANL_FOLDER, 'Please fill in the LANL_FOLDER variable:\n line 17 cyber/loaders/load_lanl.py'
+LANL_FOLDER = None
+assert LANL_FOLDER, 'Please fill in the LANL_FOLDER variable:\n line 17 /lanl_experiments/loaders/load_lanl.py'
 
 COMP = 0
 USR = 1
