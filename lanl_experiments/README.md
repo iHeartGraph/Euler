@@ -3,7 +3,7 @@
 This folder contains the code that ran the experiments we report on the LANL data set. 
 
 ## Prerequisites
-Please download the LANL data set from [https://csr.lanl.gov/data/cyber1/](https://csr.lanl.gov/data/cyber1/). Then, in `./loaders/split.py` please specify the file locations, and output location for the cleaned, split data on lines 13-15. Finally, on line 17 of `./loaders/load_lanl.py` please specify the location of the LANL files. 
+Please download the LANL data set from [https://csr.lanl.gov/data/cyber1/](https://csr.lanl.gov/data/cyber1/). Then, in `./loaders/split.py` please specify the file locations, and output location for the cleaned, split data on lines 13-15 and run it. Finally, on line 17 of `./loaders/load_lanl.py` please specify the location of the LANL files. 
 
 ## Usage
 To run experiments on the LANL data set, use `run.py`. Tests used in the paper are automated in `runall_LANL.sh` and `run_delta.sh`. Options include:
