@@ -14,6 +14,14 @@ Our framework separates the two such that GNNs are free to run independantly. In
 
 ![](/img/model.png)
 
+By reframing lateral movement detection in a network as anomalous edge detection over a temporal graph, models following this technique can be used for intrusion detection systems. In the example below, we present a toy example of anomalous network activity that could only be captured if a network were abstracted in this manner: 
+
+![](/img/example.png)
+
+Here, C0 and C1 should only communicate with the shared drive after Alice and Bob have authenticated with them, respectively. However in time step 5, C1 connects to the shared drive without Bob's prior authorization. Pattern would be difficult to detect with other anomaly-based IDS's--all of which either do not consider the spatial relationship between Bob and the shared drive, or do not consider the temporal distinction between the edge (C1, SD) at times 1 and 5. 
+
 This framework is scalable to large datasets, and is much faster than every other temporal link prediction method we tried, while retaining similar, or better precision and AUC. 
 
 <img src="/img/scalability.png" width="375"/>) <img src="/img/runtimes.png" width="350"/>
+
+This allows us to run experiments on real-world enterprise data sets quickly, and with highly accurate results. We show that while Euler-based models have equivilant precision and accuracy on smaller data sets, on larger ones, the simplicity of the model allows it to outperform state-of-the-art temporal link predictors, as well as other graph-based approaches to anomaly-based IDS's. 
