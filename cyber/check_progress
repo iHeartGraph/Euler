@@ -1,0 +1,12 @@
+#!/mnt/raid0_24TB/isaiah/miniconda/bin/python3
+
+import pickle
+import json
+
+f = open('tmp.dat', 'rb')
+db = pickle.load(f)
+
+for d in db:
+	print(json.dumps(d, indent=2))
+
+f.close()
