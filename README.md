@@ -14,7 +14,7 @@ Our framework separates the two such that GNNs are free to run independantly. In
 
 ![](/img/model.png)
 
-By reframing lateral movement detection in a network as anomalous edge detection over a temporal graph, models following this technique can be used for intrusion detection systems. In the example below, we present a toy example of anomalous network activity that could only be captured if a network were abstracted in this manner: 
+By reframing lateral movement detection in a network as anomalous edge detection over a temporal graph, models following this technique can be used for intrusion detection systems. Below, we present a toy example of anomalous network activity that could only be captured if a network were abstracted in this manner: 
 
 ![](/img/example.png)
 
