@@ -15,8 +15,8 @@ import torch.multiprocessing as mp
 from torch.optim import Adam, Adadelta
 
 from loaders.tdata import TData
-from models.detector import DetectorEncoder, DetectorRecurrent 
-from models.predictor import PredictorEncoder, PredictorRecurrent
+from models.euler_detector import DetectorEncoder, DetectorRecurrent 
+from models.euler_predictor import PredictorEncoder, PredictorRecurrent
 from models.utils import _remote_method_async, _remote_method
 from utils import get_score, get_optimal_cutoff
 
@@ -484,7 +484,7 @@ def run_all(workers, rnn_constructor, rnn_args, worker_constructor,
             How much weight to give low FPR when deciding a cutoff;
             defaults to 0.6
         impl : str in ['DETECT', 'PREDICT']
-            Class implimenting Framework classes
+            Class implimenting Euler_Interface
         load_fn : callable -> TGraph
             Function to load a set of snapshots into workers
         tr_start : int

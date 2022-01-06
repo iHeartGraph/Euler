@@ -77,7 +77,7 @@ def train(model, data, epochs=1500, pred=False, nratio=1, lr=0.01):
                 dnscores = get_score(dt, df)
 
                 print(
-                    '[%d] Loss: %0.4f  \n\tDet %s  \n\tNew %s' %
+                    '[%d] Loss: %0.4f  \n\tPr  %s  \n\tNew %s' %
                     (e, trloss, fmt_score(dscores), fmt_score(dnscores) ),
                     end=''
                 )
@@ -90,6 +90,9 @@ def train(model, data, epochs=1500, pred=False, nratio=1, lr=0.01):
                 print('*')
                 best = (avg, deepcopy(model))
                 no_improvement = 0
+
+            # Log any epoch with no progress on val set; break after 
+            # a certain number of epochs
             else:
                 print()
                 # Though it's not reflected in the code, the authors for VGRNN imply in the

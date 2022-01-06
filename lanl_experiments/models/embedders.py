@@ -5,9 +5,9 @@ from torch.distributed import rpc
 from torch_geometric.nn import GCNConv, GATConv
 from torch_geometric.nn.conv.message_passing import MessagePassing
 
-from .framework import Euler_Embed_Unit
-from .detector import DetectorEncoder
-from .predictor import PredictorEncoder
+from .euler_interface import Euler_Embed_Unit
+from .euler_detector import DetectorEncoder
+from .euler_predictor import PredictorEncoder
 
 
 class DropEdge(nn.Module):
