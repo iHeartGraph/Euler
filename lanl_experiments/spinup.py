@@ -15,6 +15,7 @@ import torch.multiprocessing as mp
 from torch.optim import Adam, Adadelta
 
 from loaders.tdata import TData
+from loaders.load_lanl import load_lanl_dist
 from models.euler_detector import DetectorEncoder, DetectorRecurrent 
 from models.euler_predictor import PredictorEncoder, PredictorRecurrent
 from models.utils import _remote_method_async, _remote_method
@@ -387,6 +388,7 @@ def test(model, h0, times, rrefs):
     [f.wait() for f in futs]
     stats = []
 
+    print("Embedding Test Data...")
     with torch.no_grad():
         model.eval()
         s = time.time()

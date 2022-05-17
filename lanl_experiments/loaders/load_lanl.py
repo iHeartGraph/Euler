@@ -76,7 +76,7 @@ def load_lanl_dist(workers, start=0, end=635015, delta=8640, is_test=False, ew_f
     )
 
     # Helper method to concatonate one field from all of the datas
-    data_reduce = lambda x : sum([datas[i].__getattribute__(x) for i in range(workers)], [])
+    data_reduce = lambda x : sum([getattr(datas[i], x) for i in range(workers)], [])
 
     # Just join all the lists from all the data objects
     print("Joining Data objects")
