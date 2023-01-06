@@ -157,7 +157,7 @@ def train(model, data, epochs=1500, pred=False, nratio=1, lr=0.01):
             }
 
 
-if __name__ == '__main__':
+def ndss_benchmarks():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-p', '--predict',

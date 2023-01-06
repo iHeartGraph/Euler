@@ -6,7 +6,7 @@ import torch
 from torch.optim import Adam
 
 import generators as g
-import loaders.load_vgrnn as vd
+import loaders.load_data as ld
 from models.euler_serial import EulerGCN
 from utils import get_score
 
@@ -157,7 +157,7 @@ def train(model, data, epochs=1500, pred=False, nratio=1, lr=0.01):
             }
 
 
-if __name__ == '__main__':
+def ndss_benchmarks():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-p', '--predict',
@@ -193,7 +193,7 @@ if __name__ == '__main__':
     outf = 'euler.txt' 
 
     for d in ['enron10', 'fb', 'dblp']:
-        data = vd.load_vgrnn(d)
+        data = ld.load_vgrnn(d)
         model = EulerGCN(data.x.size(1), 32, 16, lstm=args.lstm)
         
         stats = [
