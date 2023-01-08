@@ -36,6 +36,7 @@ def parse_file(fname):
     f = open(fname, 'r')
 
     srcs,dsts = [],[]
+    etype = []
     labels = []
     ts = []
 
@@ -45,40 +46,53 @@ def parse_file(fname):
         
         if (dst := d.get('service')):
             service_dst = dst.split('/')
-            service = service_dst[0]
+            service = service_dst[0].upper()
 
-            if service == 'host':
-                dst = service_dst[1].split('.')[0].upper()
+            # Lots of noise
+            if service not in ['HOST', 'RPCSS', 'RESTRICTEDKRBHOST']:
+                line = f.readline()
+                continue
 
-                if 'client' in d:
-                    src = d['client'].split('/')[0].upper()
-                else: 
-                    src = IP_MAP[d['id.orig_h']]
+            if len(service_dst) > 1:
+                dst = service_dst[1]
+            else:
+                dst = service_dst[0]
 
-                srcs.append(src)
-                dsts.append(dst)
-                labels.append(0 if dst == ALLOWED.get(src) else 1)
-                ts.append(int(parser.parse(d['ts']).timestamp()))
+            dst = dst.split('.')[0].upper()
+            dst = dst.split('$')[0]
+
+            if 'client' in d:
+                src = d['client'].split('/')[0].upper().replace('$','')
+            else: 
+                src = IP_MAP[d['id.orig_h']]
+
+            srcs.append(src)
+            dsts.append(dst)
+            etype.append(service.upper())
+            labels.append(0 if dst == ALLOWED.get(src) else 1)
+            ts.append(int(parser.parse(d['ts']).timestamp()))
 
         line = f.readline()
 
     f.close()
-    return srcs,dsts,labels,ts 
+    return srcs,dsts,etype,labels,ts 
 
-def parse_all():
+
+def parse_all(st=0,end=2):
     files = []
-    for i in range(3):
+    for i in range(st,end+1):
         day = DAY[i]
         fs = glob(DATA+day+'kerb*')
 
         fs.sort()
         files += fs
 
-    src,dst,labels,ts = [],[],[],[]
+    src,dst,etype,labels,ts = [],[],[],[],[]
     for file in files:
-        s,d,l,t = parse_file(file)
-        src+=s; dst+=d; labels+=l; ts+=t
+        s,d,et,l,t = parse_file(file)
+        src+=s; dst+=d; etype+=et; labels+=l; ts+=t
+        
+    return src,dst,etype,labels,ts
 
-    return src,dst,labels,ts
-
-parse_all()
+src,dst,etype,ys,_ = parse_all()
+[print(src[i],'-(%s)->' % etype[i], dst[i], ys[i], sep='\t') for i in range(len(src))]
