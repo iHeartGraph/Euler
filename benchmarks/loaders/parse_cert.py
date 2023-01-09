@@ -3,9 +3,12 @@ import glob
 
 from joblib import Parallel, delayed
 import torch
+from torch_geometric.data import Data 
 from tqdm import tqdm
 
-# Parser for CERN insider threat 
+from .load_data import TData
+
+# Parser for CERT insider threat 
 # dataset: https://kilthub.cmu.edu/articles/dataset/Insider_Threat_Test_Dataset/12841247/1
 DATA = '/home/ead/iking5/data/CERT_InsiderTheat/'
 
@@ -61,7 +64,7 @@ def parse_all(campaign='r4.2'):
     torch.save(results, DATA+campaign+'_raw.pt')
     return torchify(results, campaign)
 
-def torchify(results, campaign):
+def torchify(results, campaign, val_size=0.05):
     '''
     Convert from list to sorted tensor
     '''
@@ -107,17 +110,75 @@ def torchify(results, campaign):
     ys = ys[order]
     etype = etype[order]
 
-    torch.save({
-        'ts':ts, 
-        'ei':ei, 
-        'x': xs,
-        'ys':ys, 
-        'etype':etype,
-        'nmap':nmap,
-        'emap':emap
-    }, DATA+campaign+'_structured.pt')
+    eis, ets, ys = split(ei, etype, ts, ys)
 
-    return ts, ei, ys, etype
+    test_starts = 0
+    for y in ys:
+        if y.sum():
+            break 
+        else:
+            test_starts += 1
+
+    masks = []
+    for tr in range(test_starts):
+        m = torch.rand(eis[tr].size(1))
+        m = m > val_size
+
+        # "Test" is a whole dif dataset 
+        # for compatibility, just vector of 1's
+        masks.append(
+            torch.cat([
+                m, ~m, torch.ones(m.size())
+            ], dim=0)
+        )
+
+    tr = TData(
+        eis=eis[:test_starts], 
+        ts=ts[:test_starts],
+        etype=ets[:test_starts],
+        masks=masks,
+        x=xs,
+        nmap=nmap,
+        emap=emap,
+    ) 
+    torch.save(tr, DATA+campaign+'_tr.pt')
+    
+    te = TData(
+        eis=eis[test_starts:], 
+        y=ys[test_starts:], 
+        etype=ets[test_starts:],
+        x=xs,
+        nmap=nmap,
+        emap=emap,
+    ) 
+    torch.save(te, DATA+campaign+'_te.pt')
+
+    return tr, te 
+
+def split(ei, etype, ts, y, snapshot_size=60*60*24):
+    '''
+    Split data into discrete snapshots (days for now)
+    '''
+    spans = [0]
+    next_segment = snapshot_size
+
+    # Find split points
+    for i in range(ts.size(0)):
+        if ts[i] >= next_segment:
+            spans.append(i)
+            next_segment += snapshot_size
+    spans.append(ts.size(0))
+
+    # Split into chunks
+    eis = []; ets = []; ys = []
+    for i in range(len(spans)-1):
+        eis.append(ei[spans[i]:spans[i+1]])
+        ets.append(etype[spans[i]:spans[i+1]])
+        ys.append(y[spans[i]:spans[i+1]])
+
+    return eis, ets, ys 
 
 if __name__ == '__main__':
-    parse_all()
+    campaign = 'r4.2'
+    res = torch.load(DATA+campaign+'_raw.pt')
+    torchify(res, campaign)
