@@ -218,6 +218,20 @@ class EulerGCN(nn.Module):
 
         return tscores, fscores
 
+    def score_all(self, zs, eis, as_probs=False):
+        scores = []
+
+        T = len(eis)
+        for i in range(T):
+            src, dst = eis[i]
+            z = zs[i]
+            scores.append(self.decode(src, dst, z))
+
+        scores = torch.cat(scores, dim=0)
+        if as_probs:
+            scores=self.__logits_to_probs(scores)
+
+        return scores
 
     '''
     Converts from log odds (what the encode method outputs) to probabilities

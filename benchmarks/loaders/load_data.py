@@ -16,6 +16,7 @@ class TData(Data):
 
     def __init__(self, **kwargs):
         super(TData, self).__init__(**kwargs)
+        self.T = len(self.eis)
 
         # Pickle hates these. Converting to methods
         # Getter methods so I don't have to write this every time

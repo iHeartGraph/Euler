@@ -100,6 +100,7 @@ def torchify(results, campaign, val_size=0.05):
     
     xs = torch.zeros(len(x),2)
     xs[torch.arange(xs.size(0)),torch.tensor(x)] = 1.
+    xs = torch.cat([xs, torch.eye(xs.size(0))], dim=1)
 
     ys = torch.tensor(ys)
     ts = torch.tensor(ts)
@@ -127,9 +128,9 @@ def torchify(results, campaign, val_size=0.05):
         # "Test" is a whole dif dataset 
         # for compatibility, just vector of 1's
         masks.append(
-            torch.cat([
+            torch.stack([
                 m, ~m, torch.ones(m.size())
-            ], dim=0)
+            ]).bool()
         )
 
     tr = TData(
@@ -172,13 +173,13 @@ def split(ei, etype, ts, y, snapshot_size=60*60*24):
     # Split into chunks
     eis = []; ets = []; ys = []
     for i in range(len(spans)-1):
-        eis.append(ei[spans[i]:spans[i+1]])
+        eis.append(ei[:, spans[i]:spans[i+1]])
         ets.append(etype[spans[i]:spans[i+1]])
         ys.append(y[spans[i]:spans[i+1]])
 
     return eis, ets, ys 
 
-if __name__ == '__main__':
+def quick_build():
     campaign = 'r4.2'
     res = torch.load(DATA+campaign+'_raw.pt')
     torchify(res, campaign)

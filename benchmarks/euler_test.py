@@ -2,6 +2,8 @@ from copy import deepcopy
 import argparse
 
 import pandas as pd
+from sklearn.metrics import roc_auc_score as auc_score,\
+     average_precision_score as ap_score
 import torch 
 from torch.optim import Adam
 
@@ -10,7 +12,7 @@ import loaders.load_data as ld
 from models.euler_serial import EulerGCN
 from utils import get_score
 
-torch.set_num_threads(8)
+torch.set_num_threads(32)
 
 NUM_TESTS = 5
 PATIENCE = 100
@@ -19,12 +21,10 @@ TEST_TS = 3
 
 fmt_score = lambda x : 'AUC: %0.4f AP: %0.4f' % (x[0], x[1])
 
-def train(model, data, epochs=1500, pred=False, nratio=1, lr=0.01):
+def train(model, data, end_tr, epochs=250, pred=False, nratio=1, lr=0.01):
     print(lr)
-    end_tr = data.T-TEST_TS
 
     opt = Adam(model.parameters(), lr=lr)
-
     best = (0, None)
     no_improvement = 0
     for e in range(epochs):
@@ -103,61 +103,81 @@ def train(model, data, epochs=1500, pred=False, nratio=1, lr=0.01):
                     print("Early stopping...\n")
                     break
 
-    model = best[1]
-    with torch.no_grad():
-        model.eval()
-        
-        # Inductive
-        if not pred:
-            zs = model(data.x, data.eis, data.tr)[end_tr-1:]
-        
-        # Transductive
-        else:
-            zs = model(data.x, data.eis, data.all)[end_tr-1:]
+    return best[1]
 
-        if not pred:
-            zs = zs[1:]
-            p,n,z = g.link_detection(data, data.te, zs, start=end_tr)
-            t, f = model.score_fn(p,n,z)
-            sscores = get_score(t, f)
+@torch.no_grad()
+def test(model, data, pred, end_tr):
+    model.eval()
+    
+    # Inductive
+    if not pred:
+        zs = model(data.x, data.eis, data.tr)[end_tr-1:]
+    
+    # Transductive
+    else:
+        zs = model(data.x, data.eis, data.all)[end_tr-1:]
 
-            print(
-                '''
-                Final scores: 
-                    Static LP:  %s
-                '''
-            % fmt_score(sscores))
+    if not pred:
+        zs = zs[1:]
+        p,n,z = g.link_detection(data, data.te, zs, start=end_tr)
+        t, f = model.score_fn(p,n,z)
+        sscores = get_score(t, f)
 
-            return {'auc': sscores[0], 'ap': sscores[1]}
+        print(
+            '''
+            Final scores: 
+                Static LP:  %s
+            '''
+        % fmt_score(sscores))
 
-        else:              
-            p,n,z = g.link_prediction(data, data.all, zs, start=end_tr-1)
-            t, f = model.score_fn(p,n,z)
-            dscores = get_score(t, f)
+        return {'auc': sscores[0], 'ap': sscores[1]}
 
-            p,n,z = g.new_link_prediction(data, data.all, zs, start=end_tr-1)
-            t, f = model.score_fn(p,n,z)
-            nscores = get_score(t, f)
+    else:              
+        p,n,z = g.link_prediction(data, data.all, zs, start=end_tr-1)
+        t, f = model.score_fn(p,n,z)
+        dscores = get_score(t, f)
 
-            print(
-                '''
-                Final scores: 
-                    Dynamic LP:     %s 
-                    Dynamic New LP: %s 
-                ''' %
-                (fmt_score(dscores),
-                 fmt_score(nscores))
-            )
+        p,n,z = g.new_link_prediction(data, data.all, zs, start=end_tr-1)
+        t, f = model.score_fn(p,n,z)
+        nscores = get_score(t, f)
 
-            return {
-                'pred-auc': dscores[0],
-                'pred-ap': dscores[1],
-                'new-auc': nscores[0], 
-                'new-ap': nscores[1],
-            }
+        print(
+            '''
+            Final scores: 
+                Dynamic LP:     %s 
+                Dynamic New LP: %s 
+            ''' %
+            (fmt_score(dscores),
+                fmt_score(nscores))
+        )
+
+        return {
+            'pred-auc': dscores[0],
+            'pred-ap': dscores[1],
+            'new-auc': nscores[0], 
+            'new-ap': nscores[1],
+        }
+
+@torch.no_grad()
+def test_cert(model, data, pred, h0):
+    zs = model(data.xs, data.eis, data.all, h_0=h0)
+    
+    if pred:
+        ys = data.y[1:]; zs = zs[:-1]; eis=data.eis[:-1]
+    else:
+        ys = data.y; eis=data.eis
+
+    ys = torch.cat(ys)
+    preds = model.score_all(zs, eis)
+
+    auc = auc_score(ys, preds)
+    ap = ap_score(ys, preds)
+
+    print("AUC:\t%f\tAP:\t%f" % (auc,ap)) 
+    return {'auc':auc, 'ap':ap}
 
 
-def ndss_benchmarks():
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-p', '--predict',
@@ -168,7 +188,24 @@ def ndss_benchmarks():
         '--lstm',
         action='store_true'
     )
+    parser.add_argument(
+        '--lr',
+        type=float,
+        default=0.02
+    )
+    parser.add_argument(
+        '--hidden', 
+        type=int,
+        default=32
+    )
+    parser.add_argument(
+        '--embedding',
+        type=int,
+        default=16
+    )
+    return parser.parse_args()
 
+def ndss_benchmarks():
     '''
     0.02 is default as it's the best overall, but for the DBLP dataset, 
     lower LR's (0.005 in the paper) work better for new pred tasks
@@ -183,25 +220,23 @@ def ndss_benchmarks():
         | DBLP    | 0.02  | 0.02  | 0.005 | 
         +---------+-------+-------+-------+
     '''
-    parser.add_argument(
-        '--lr',
-        type=float,
-        default=0.02
-    )
-
-    args = parser.parse_args()
+    args = get_args()
     outf = 'euler.txt' 
 
     for d in ['enron10', 'fb', 'dblp']:
         data = ld.load_vgrnn(d)
         model = EulerGCN(data.x.size(1), 32, 16, lstm=args.lstm)
-        
+        end_tr = data.T-TEST_TS
+
         stats = [
-            train(
-                deepcopy(model), 
-                data, 
-                pred=args.predict, 
-                lr=args.lr
+            test(
+                train(
+                    deepcopy(model), 
+                    data, end_tr,
+                    pred=args.predict, 
+                    lr=args.lr
+                ), 
+                data, args.predict, end_tr
             ) for _ in range(NUM_TESTS)
         ]
 
@@ -215,3 +250,45 @@ def ndss_benchmarks():
         f.write(str(df.mean()*100) + '\n')
         f.write(str(df.sem()*100) + '\n\n')
         f.close()
+
+
+CERT = '/home/ead/iking5/data/CERT_InsiderTheat/'
+def cert_benchmark():
+    #from loaders.parse_cert import quick_build
+    #quick_build()
+
+    args = get_args()
+    outf = 'euler_cert.txt'
+
+    tr = torch.load(CERT+'r4.2_tr.pt')
+    te = torch.load(CERT+'r4.2_te.pt')
+
+    model = EulerGCN(tr.x.size(1), args.hidden, args.embedding, lstm=args.lstm)
+    stats = []
+    for _ in range(NUM_TESTS):
+        eval_model = train(
+            deepcopy(model), 
+            tr, -1,
+            pred=args.predict, 
+            lr=args.lr
+        )
+        
+        eval_model.eval()
+        with torch.no_grad():
+            _, h0 = eval_model(tr.x, tr.eis, tr.all, include_h=True)
+        stats.append(test_cert(eval_model, te, args.predict, h0))
+        
+
+    df = pd.DataFrame(stats)
+    print(df.mean()*100)
+    print(df.sem()*100)
+
+    f = open(outf, 'a')
+    f.write('LR: %0.4f\n' % args.lr)
+    f.write('Hidden: %d\nEmb: %d\n' % (args.hidden, args.embedding))
+    f.write(str(df.mean()*100) + '\n')
+    f.write(str(df.sem()*100) + '\n\n')
+    f.close()
+
+if __name__ == '__main__':
+    cert_benchmark()
