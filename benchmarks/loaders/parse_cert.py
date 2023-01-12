@@ -64,7 +64,7 @@ def parse_all(campaign='r4.2'):
     torch.save(results, DATA+campaign+'_raw.pt')
     return torchify(results, campaign)
 
-def torchify(results, campaign, val_size=0.05):
+def torchify(results, campaign, val_size=0.05, days=1):
     '''
     Convert from list to sorted tensor
     '''
@@ -111,7 +111,7 @@ def torchify(results, campaign, val_size=0.05):
     ys = ys[order]
     etype = etype[order]
 
-    eis, ets, ys = split(ei, etype, ts, ys)
+    eis, ets, ys = split(ei, etype, ts, ys, snapshot_size=60*60*24*days)
 
     test_starts = 0
     for y in ys:
@@ -179,7 +179,7 @@ def split(ei, etype, ts, y, snapshot_size=60*60*24):
 
     return eis, ets, ys 
 
-def quick_build():
+def quick_build(days=1):
     campaign = 'r4.2'
     res = torch.load(DATA+campaign+'_raw.pt')
-    torchify(res, campaign)
+    torchify(res, campaign, days=days)

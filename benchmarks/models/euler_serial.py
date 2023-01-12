@@ -14,7 +14,7 @@ class GAE(nn.Module):
         self.relu = nn.ReLU()
         self.c2 = GCNConv(hidden_dim, embed_dim, add_self_loops=True)
         self.drop = nn.Dropout(0.25)
-        self.de = DropEdge(0.8)
+        self.de = DropEdge(0.25) # Set to 0.8 for benchmarks
 
     def forward(self, x, ei, ew=None):
         ei = self.de(ei)
@@ -63,7 +63,7 @@ class EulerGCN(nn.Module):
     def __init__(self, x_dim, h_dim, z_dim, gru_hidden_units=1, 
                 dynamic_feats=False, dense_loss=False,
                 use_predictor=False, use_w=True, lstm=False,
-                neg_weight=0.5):
+                neg_weight=0.5, add_bidirect=False):
         super(EulerGCN, self).__init__()
 
         self.weightless = not use_w
@@ -73,6 +73,7 @@ class EulerGCN(nn.Module):
         self.cutoff = None
         self.z_dim = z_dim
         self.drop = nn.Dropout(0.05)
+        self.make_bidirectional = add_bidirect
 
         self.gcn = GAE(
             x_dim, 
@@ -125,6 +126,9 @@ class EulerGCN(nn.Module):
         
         for i in range(len(eis)):    
             ei = mask_fn(start_idx + i)
+            if self.make_bidirectional:
+                ei = torch.cat([ei, ei[torch.tensor([1,0])]], dim=1)
+
             ew = None if not ew_fn or self.weightless else ew_fn(start_idx + i)
             x = xs if not self.dynamic_feats else xs[start_idx + i]
 

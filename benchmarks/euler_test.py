@@ -21,7 +21,7 @@ TEST_TS = 3
 
 fmt_score = lambda x : 'AUC: %0.4f AP: %0.4f' % (x[0], x[1])
 
-def train(model, data, end_tr, epochs=250, pred=False, nratio=1, lr=0.01):
+def train(model, data, end_tr, epochs=1500, pred=False, nratio=1, lr=0.01):
     print(lr)
 
     opt = Adam(model.parameters(), lr=lr)
@@ -160,6 +160,7 @@ def test(model, data, pred, end_tr):
 
 @torch.no_grad()
 def test_cert(model, data, pred, h0):
+    model.eval()
     zs = model(data.xs, data.eis, data.all, h_0=h0)
     
     if pred:
@@ -202,6 +203,11 @@ def get_args():
         '--embedding',
         type=int,
         default=16
+    )
+    parser.add_argument(
+        '--days',
+        type=int, 
+        default=1
     )
     return parser.parse_args()
 
@@ -254,16 +260,21 @@ def ndss_benchmarks():
 
 CERT = '/home/ead/iking5/data/CERT_InsiderTheat/'
 def cert_benchmark():
-    #from loaders.parse_cert import quick_build
-    #quick_build()
+    from loaders.parse_cert import quick_build
 
     args = get_args()
     outf = 'euler_cert.txt'
 
+    quick_build(days=args.days)
+
     tr = torch.load(CERT+'r4.2_tr.pt')
     te = torch.load(CERT+'r4.2_te.pt')
 
-    model = EulerGCN(tr.x.size(1), args.hidden, args.embedding, lstm=args.lstm)
+    model = EulerGCN(
+        tr.x.size(1), args.hidden, 
+        args.embedding, lstm=args.lstm,
+        add_bidirect=True
+    )
     stats = []
     for _ in range(NUM_TESTS):
         eval_model = train(
@@ -285,7 +296,8 @@ def cert_benchmark():
 
     f = open(outf, 'a')
     f.write('LR: %0.4f\n' % args.lr)
-    f.write('Hidden: %d\nEmb: %d\n' % (args.hidden, args.embedding))
+    f.write('Hidden: %d\nEmb: %d\nSize (days): %d\n' % (args.hidden, args.embedding, args.days))
+    f.write(str(df)+'\n')
     f.write(str(df.mean()*100) + '\n')
     f.write(str(df.sem()*100) + '\n\n')
     f.close()
