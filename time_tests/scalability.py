@@ -81,7 +81,6 @@ def init_procs(rank, world_size):
             rpc_backend_options=rpc_backend_options
         )
 
-        print("Finished initializing rpc")
         rrefs = init_workers(
             world_size-1, 
             N_SNAPSHOTS
