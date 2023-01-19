@@ -56,7 +56,7 @@ class TData(Data):
             else self.eis[t][:, ~self.masks[t]]
 
     def ew_masked(self, enum, t):
-        if isinstance(self.ews, None.__class__):
+        if 'ews' not in self.keys:
             return None
 
         if enum == self.TEST or self.is_test:

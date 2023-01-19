@@ -22,12 +22,12 @@ class DropEdge(nn.Module):
         if self.training and self.p > 0:
             mask = torch.rand(ei.size(1))
             if ew is None:
-                return ei[:, mask > self.p]
+                return ei[:, mask > self.p], None
             else:
                 return ei[:, mask > self.p], ew[mask > self.p]
                 
         if ew is None:
-            return ei 
+            return ei, None
         else: 
             return ei, ew
 
@@ -76,7 +76,7 @@ class GCN(Euler_Embed_Unit):
         self.c2 = GCNConv(h_dim, z_dim, add_self_loops=True)
         self.drop = nn.Dropout(0.25)
         self.tanh = nn.Tanh()
-        self.de = DropEdge(0.8)
+        self.de = DropEdge(0.25)
     
     
     def inner_forward(self, mask_enum):
@@ -118,7 +118,6 @@ class GCN(Euler_Embed_Unit):
 
         ei = self.data.ei_masked(mask_enum, i)
         ew = self.data.ew_masked(mask_enum, i)
-
         ei, ew = self.de(ei, ew=ew)
 
         # Simple 2-layer GCN. Tweak if desired

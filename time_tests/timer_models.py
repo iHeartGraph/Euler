@@ -18,7 +18,7 @@ def timed_gcn_rref(loader, kwargs, h_dim, z_dim, **kws):
     
 
 class TimedRecurrent(DetectorRecurrent):
-    def forward(self, mask_enum, include_h=False, h0=None, no_grad=False):
+    def forward(self, mask_enum, h0=None, no_grad=False, batched=False):
         '''
         First have each worker encode their data, then run the embeddings through the RNN 
 
@@ -35,6 +35,8 @@ class TimedRecurrent(DetectorRecurrent):
         full_st = time.time()
         futs = self.encode(mask_enum, no_grad)
 
+        print(len(futs))
+
         # Run through RNN as embeddings come in 
         # Also prevents sequences that are super long from being encoded
         # all at once. (This is another reason to put extra tasks on the
@@ -44,27 +46,52 @@ class TimedRecurrent(DetectorRecurrent):
         rnn_ts = []
         net_ts = []
 
-        for f in futs:
-            z, t = f.wait()
+        if not batched:
+            for f in futs:
+                waiting = time.time()
+                z, t = f.wait()
+                waited = time.time()
+                net_ts.append(waited-waiting)
+
+                st = time.time()
+                z, h0 = self.rnn(
+                    z,
+                    h0, include_h=True
+                )
+                rnn_done = time.time() 
+
+                enc_ts.append(t)
+                rnn_ts.append(rnn_done-st)
+                zs.append(z)
+
+            zs = torch.cat(zs, dim=0)
+
+        else:
+            complete = []
+            for f in futs:
+                waiting = time.time()
+                f = f.wait()
+                waited = time.time()
+                
+                complete.append(f)
+                net_ts.append(waited-waiting)
+
+            for z,t in complete:
+                zs.append(z); enc_ts.append(t)
 
             st = time.time()
-            z, h0 = self.rnn(
-                z,
+            zs, h0 = self.rnn(
+                torch.cat(zs, dim=0),
                 h0, include_h=True
             )
-            rnn_done = time.time() 
-
-            enc_ts.append(enc_ts.append(t))
+            rnn_done = time.time()
             rnn_ts.append(rnn_done-st)
-            net_ts.append(rnn_done-full_st)
-            zs.append(z)
 
+            zs = z 
 
-        # May as well do this every time, not super expensive
-        self.len_from_each = [
-            embed.size(0) for embed in zs
-        ]
-        zs = torch.cat(zs, dim=0)
         self.z_dim = zs.size(-1)
 
-        return zs, {'enc':enc_ts, 'rnn':rnn_ts, 'full':net_ts}
+        return zs, {
+            'enc':enc_ts, 'rnn':rnn_ts, 'waiting': net_ts,
+            'full':sum(net_ts)+sum(rnn_ts), 'if_serial':sum(enc_ts)+sum(rnn_ts)
+        }

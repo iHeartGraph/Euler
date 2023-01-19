@@ -5,7 +5,7 @@ import torch
 
 from .tdata import TData
 
-def load_erdos(jobs, n=1000, p=0.2, edge_high=20000, edge_low=2000, **kws):
+def load_erdos(jobs, n=1000, p=0.2, edge_high=20000, edge_low=10000, **kws):
     src,dst = [],[]
     eis = []
     masks = []
@@ -42,9 +42,7 @@ def load_erdos(jobs, n=1000, p=0.2, edge_high=20000, edge_low=2000, **kws):
     # Then shuffle them around
     ei = torch.tensor([src,dst])
     ei = ei[:, torch.randperm(ei.size(1))]
-    
-    tr = torch.rand(ei.size(1)) > 0.05
-    mask = torch.stack([tr, ~tr])
+    mask = torch.rand(ei.size(1)) > 0.05
 
     # Then split into snapshots
     for i in range(len(edges_per)-1):
