@@ -209,6 +209,10 @@ def get_args():
         type=int, 
         default=1
     )
+    parser.add_argument(
+        '--directed',
+        action='store_true'
+    )
     return parser.parse_args()
 
 def ndss_benchmarks():
@@ -263,31 +267,30 @@ def cert_benchmark():
     from loaders.parse_cert import quick_build
 
     args = get_args()
-    outf = 'euler_cert.txt'
+    outf = 'output/cert_classify.txt'
 
-    quick_build(days=args.days)
+    data = quick_build(days=args.days, classify=True)
 
-    tr = torch.load(CERT+'r4.2_tr.pt')
-    te = torch.load(CERT+'r4.2_te.pt')
+    #tr = torch.load(CERT+'r4.2_tr.pt')
+    #te = torch.load(CERT+'r4.2_te.pt')
+    #data = torch.load(CERT+'r4.2_classify.pt')
 
     model = EulerGCN(
-        tr.x.size(1), args.hidden, 
+        data.x.size(1), args.hidden, 
         args.embedding, lstm=args.lstm,
-        add_bidirect=True
+        add_bidirect=not args.directed
     )
     stats = []
     for _ in range(NUM_TESTS):
         eval_model = train(
             deepcopy(model), 
-            tr, -1,
+            data, -1,
             pred=args.predict, 
             lr=args.lr
         )
         
         eval_model.eval()
-        with torch.no_grad():
-            _, h0 = eval_model(tr.x, tr.eis, tr.all, include_h=True)
-        stats.append(test_cert(eval_model, te, args.predict, h0))
+        stats.append(test_cert(eval_model, data, args.predict, None))
         
 
     df = pd.DataFrame(stats)

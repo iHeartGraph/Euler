@@ -156,6 +156,108 @@ def torchify(results, campaign, val_size=0.05, days=1):
 
     return tr, te 
 
+def torchify_classification(results, campaign, val_size=0.05, days=1):
+    '''
+    Convert from list to sorted tensor
+    '''
+    ys,ts,src,dst,etype = [],[],[],[],[]
+
+    for r in results:
+        y,t,s,d,e = r 
+        ys += y; ts += t; src += s; dst += d; etype += e 
+
+    nmap = dict(); nid=0; x=[]
+    for s in src:
+        if s not in nmap:
+            nmap[s] = nid
+            nid += 1
+            x.append(0)
+    for d in dst:
+        if d not in nmap:
+            nmap[d] = nid 
+            nid += 1
+            x.append(1)
+
+    emap = dict(); eid = 0
+    for e in etype:
+        if e not in emap:
+            emap[e] = eid 
+            eid += 1
+        
+    etype = torch.tensor([emap[e] for e in etype])
+    ei = torch.tensor([
+        [nmap[s] for s in src],
+        [nmap[d] for d in dst]
+    ])
+    
+    xs = torch.zeros(len(x),2)
+    xs[torch.arange(xs.size(0)),torch.tensor(x)] = 1.
+    xs = torch.cat([xs, torch.eye(xs.size(0))], dim=1)
+
+    ys = torch.tensor(ys)
+    ts = torch.tensor(ts)
+    ts = ts - ts.min()
+
+    ts,order = ts.sort()
+    ei = ei[:,order]
+    ys = ys[order]
+    etype = etype[order]
+
+    eis, ets, ys = split(ei, etype, ts, ys, snapshot_size=60*60*24*days)
+
+    test_starts = 0
+    for y in ys:
+        if y.sum():
+            break 
+        else:
+            test_starts += 1
+
+    masks = []
+    for i in range(test_starts):
+        m = torch.rand(eis[i].size(1))
+        m = m > val_size
+
+        # Only testing benign edges from the dirty portion of the dataset
+        masks.append(
+            torch.stack([
+                m, ~m, torch.zeros(m.size())
+            ]).bool()
+        )
+
+    for i in range(test_starts, len(eis)):
+        # Make sure test set contains all malicious edges
+        te = ys[i].clone().bool()
+        va = torch.zeros(te.size()).bool()
+        tr = torch.zeros(te.size()).bool()
+        
+        # All benign samples to be 85/5/10 split 
+        b = ~te.nonzero().squeeze(-1)
+        tr_end = int(b.size(0)*0.85)
+        va_end = tr_end + int(b.size(0)*0.05)
+        perm = torch.randperm(b.size(0))
+
+        tr[perm[:tr_end]] = True 
+        va[perm[tr_end:va_end]] = True
+        te[perm[va_end:]] = True 
+
+        masks.append(
+            torch.stack([
+                tr, va, te 
+            ])
+        )
+
+    data = TData(
+        eis=eis,
+        ts=ts,
+        etype=ets,
+        masks=masks,
+        x=xs,
+        nmap=nmap,
+        emap=emap,
+    ) 
+    torch.save(tr, DATA+campaign+'_classify.pt')
+    return data 
+
 def split(ei, etype, ts, y, snapshot_size=60*60*24):
     '''
     Split data into discrete snapshots (days for now)
@@ -179,7 +281,11 @@ def split(ei, etype, ts, y, snapshot_size=60*60*24):
 
     return eis, ets, ys 
 
-def quick_build(days=1):
+def quick_build(days=1, classify=False):
     campaign = 'r4.2'
     res = torch.load(DATA+campaign+'_raw.pt')
-    torchify(res, campaign, days=days)
+    
+    if classify:
+        return torchify_classification(res, campaign, days=days)
+    else:
+        return torchify(res, campaign, days=days)
