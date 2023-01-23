@@ -4,10 +4,13 @@ import os
 import pandas as pd
 
 import loaders.load_lanl as lanl
+import loaders.load_optc as optc
 from models.recurrent import GRU, LSTM, EmptyModel
 from models.embedders import \
     detector_gcn_rref, detector_gat_rref, detector_sage_rref, \
-    predictor_gcn_rref, predictor_gat_rref, predictor_sage_rref 
+    predictor_gcn_rref, predictor_gat_rref, predictor_sage_rref
+from models.softmax_det import tedge_rref 
+from models.softmax_pred import pred_tedge_rref
 
 from spinup import run_all
 
@@ -98,7 +101,7 @@ def get_args():
     ap.add_argument(
         '--impl', '-i',
         type=str.upper,
-        choices=['DETECT', 'PREDICT', 'D', 'P', 'PRED'],
+        choices=['DETECT', 'PREDICT', 'D', 'P', 'PRED', 'TEDGE', 'TEDGE_PRED'],
         default="DETECT"
     )
 
@@ -140,6 +143,15 @@ def get_args():
         args.delta = int(args.delta * (60**2))
         args.manual = False 
 
+    elif args.dataset.startswith('O'):
+        args.loader = optc.load_optc_dist
+        args.tr_start = 0 #optc.TIMES['val_start']
+        args.tr_end = optc.TIMES['val_end']
+        args.val_times = None #(optc.TIMES['val_start'], optc.TIMES['val_end'])
+        args.te_times = [optc.DAY1, optc.DAY2, optc.DAY3, optc.ALL]
+        args.delta = int(args.delta * 60)
+        args.manual = False 
+
     else:
         raise NotImplementedError('Only the LANL data set is supported in this release')
 
@@ -153,6 +165,12 @@ def get_args():
     else:
         args.encoder = detector_sage_rref if args.impl[0] == 'D' \
             else predictor_sage_rref
+
+    # Softmax tests
+    if args.impl == 'TEDGE':
+        args.encoder = tedge_rref
+    if args.impl == 'TEDGE_PRED':
+        args.encoder = pred_tedge_rref   
 
     if args.rnn == 'GRU':
         args.rnn = GRU

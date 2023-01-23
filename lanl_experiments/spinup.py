@@ -12,12 +12,13 @@ import torch.distributed.rpc as rpc
 import torch.distributed.autograd as dist_autograd
 from torch.distributed.optim import DistributedOptimizer
 import torch.multiprocessing as mp
-from torch.optim import Adam, Adadelta
+from torch.optim import Adam
 
 from loaders.tdata import TData
-from loaders.load_lanl import load_lanl_dist
 from models.euler_detector import DetectorEncoder, DetectorRecurrent 
 from models.euler_predictor import PredictorEncoder, PredictorRecurrent
+from models.softmax_det import TEdgeEncoder, TEdgeRecurrent
+from models.softmax_pred import TEdgeEncoderPredictor, TEdgeRecurrentPredictor
 from models.utils import _remote_method_async, _remote_method
 from utils import get_score, get_optimal_cutoff
 
@@ -161,7 +162,9 @@ def init_procs(rank, world_size, rnn_constructor, rnn_args, worker_constructor, 
 
             rnn = rnn_constructor(*rnn_args)
             model = DetectorRecurrent(rnn, rrefs) if impl=='DETECT'\
-                else PredictorRecurrent(rnn, rrefs)
+                else PredictorRecurrent(rnn, rrefs) if impl=='PREDICT'\
+                else TEdgeRecurrent(rnn, rrefs) if impl=='TEDGE'\
+                else TEdgeRecurrentPredictor(rnn, rrefs)
 
             states = pickle.load(open('model_save.pkl', 'rb'))
             model.load_states(*states['states'])
@@ -227,7 +230,9 @@ def init_procs(rank, world_size, rnn_constructor, rnn_args, worker_constructor, 
 def train(rrefs, kwargs, rnn_constructor, rnn_args, impl):
     rnn = rnn_constructor(*rnn_args)
     model = DetectorRecurrent(rnn, rrefs) if impl=='DETECT' \
-        else PredictorRecurrent(rnn, rrefs)
+        else PredictorRecurrent(rnn, rrefs) if impl=='PREDICT' \
+        else TEdgeRecurrent(rnn, rrefs) if impl=='TEDGE' \
+        else TEdgeRecurrentPredictor(rnn, rrefs)
 
     opt = DistributedOptimizer(
         Adam, model.parameter_rrefs(), lr=kwargs['lr']
@@ -304,7 +309,9 @@ def get_cutoff(model, h0, times, kwargs, lambda_param):
     # Weirdly, calling the parent class' method doesn't work
     # whatever. This is a hacky solution, but it works
     Encoder = DetectorEncoder if isinstance(model, DetectorRecurrent) \
-        else PredictorEncoder
+        else PredictorEncoder if isinstance(model, PredictorRecurrent) \
+        else TEdgeEncoder if isinstance(model, TEdgeRecurrent) \
+        else TEdgeEncoderPredictor
 
     # First load validation data onto one of the GCNs
     _remote_method(
@@ -352,7 +359,9 @@ def test(model, h0, times, rrefs):
     # the parent object's methods. Kind of defeats the purpose of 
     # using OOP at all IMO, but whatever
     Encoder = DetectorEncoder if isinstance(model, DetectorRecurrent) \
-        else PredictorEncoder
+        else PredictorEncoder if isinstance(model, PredictorRecurrent) \
+        else TEdgeEncoder if isinstance(model, TEdgeRecurrent) \
+        else TEdgeEncoderPredictor
 
     # Load train data into workers
     ld_args = get_work_units(
@@ -461,13 +470,13 @@ def score_stats(title, scores, labels, weights, cutoff, ctime):
         'FwdTime':ctime
     }
 
+
 def run_all(workers, rnn_constructor, rnn_args, worker_constructor, 
             worker_args, delta, just_test, lambda_param, impl, load_fn, 
             tr_start, tr_end, val_times, te_times, tr_args):
     '''
     Starts up proceses, trains validates and tests the model given 
     the inputs 
-
         workers : int 
             how many worker processes to use
         rnn_constructor : callable -> RNN 
@@ -485,8 +494,8 @@ def run_all(workers, rnn_constructor, rnn_args, worker_constructor,
         lambda_param : float
             How much weight to give low FPR when deciding a cutoff;
             defaults to 0.6
-        impl : str in ['DETECT', 'PREDICT']
-            Class implimenting Euler_Interface
+        impl : str in ['DETECT', 'PREDICT', 'TEDGE', 'TEDGE PRED']
+            Class implimenting Framework classes
         load_fn : callable -> TGraph
             Function to load a set of snapshots into workers
         tr_start : int
@@ -553,4 +562,5 @@ def run_all(workers, rnn_constructor, rnn_args, worker_constructor,
     return stats
 
 if __name__ == '__main__':
-    print("Please run this file using run.py")
+    #run_all(WORKERS, GRU, RNN_ARGS, detector_gcn_rref, WORKER_ARGS, 2.0, False, 0.6, True, False)
+    get_work_units(4, 0, 3101, 6*60, False)
