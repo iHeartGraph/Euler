@@ -22,7 +22,7 @@ DEFAULT_TR = {
     'val_nratio': 1
 }
 
-OUTPATH = '' # Output folder for results.txt (ending in delimeter)
+OUTPATH = 'results/' # Output folder for results.txt (ending in delimeter)
 
 def get_args():
     global DEFAULT_TR
@@ -220,10 +220,26 @@ if __name__ == '__main__':
         exit() 
 
     f = open(OUTPATH+'results.txt', 'a')
-    f.write(str(argstr) + '\n')
-    f.write('LR: ' + str(args.lr) + '\n')
+    #f.write(str(argstr) + '\n')
+    #f.write('LR: ' + str(args.lr) + '\n')
     f.write(modelstr + '\n')
 
+    # Added for pipeline time test. Ignores results
+    # TODO REMOVE FROM RELEASE CODE
+    df = pd.DataFrame(s[0] for s in stats)
+    compressed = pd.DataFrame(
+        [df.mean(), df.sem()],
+        index=['mean', 'stderr']
+    ).to_csv().replace(',', '\t') # For easier copying into Excel
+
+    full = df.to_csv(index=False, header=False)
+    full = full.replace(',', ', ')
+
+    f.write(str(compressed) + '\n')
+    f.write(full + '\n')
+    f.close()
+    exit()
+    
     dfs = [pd.DataFrame(s) for s in list(zip(*stats))]
     dfs = pd.concat(dfs, axis=0)
 

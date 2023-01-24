@@ -1,0 +1,8 @@
+<class 'models.serial_models.VGRNN'> is pred: False
+Delta: 30.000	0
+tpe	10.589627424875895
+tr_time	460.67703437805176
+
+10.589627424875895, 460.67703437805176
+
+

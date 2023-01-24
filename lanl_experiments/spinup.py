@@ -134,7 +134,9 @@ def init_procs(rank, world_size, rnn_constructor, rnn_args, worker_constructor, 
     os.environ['MASTER_PORT'] = DDP_PORT
 
     # RPC info
-    rpc_backend_options = rpc.TensorPipeRpcBackendOptions()
+    rpc_backend_options = rpc.TensorPipeRpcBackendOptions(
+        _transports=["uv"] # Required on our ancient CentOS machine. May need to remove
+    )
     rpc_backend_options.init_method='tcp://localhost:' + RPC_PORT
 
     # This is a lot easier than actually changing it in all the methods
@@ -184,8 +186,12 @@ def init_procs(rank, world_size, rnn_constructor, rnn_args, worker_constructor, 
             tmp = time.time()
             model, h0, tpe = train(rrefs, tr_args, rnn_constructor, rnn_args, impl)
             tr_time = time.time() - tmp
+
+            print(tr_time, tpe)
         
+        '''
         h0, zs = get_cutoff(model, h0, times, tr_args, lambda_param)
+        
         stats = []
 
         for te_start,te_end in times['te_times']:
@@ -200,6 +206,9 @@ def init_procs(rank, world_size, rnn_constructor, rnn_args, worker_constructor, 
                 s['tr_time'] = tr_time
 
             stats += st
+        '''
+        # Temporarilly just testing training time 
+        stats = [{'tr_time': tr_time, 'TPE': tpe}]
 
     # Slaves
     else:
@@ -224,7 +233,9 @@ def init_procs(rank, world_size, rnn_constructor, rnn_args, worker_constructor, 
 
     # Write output to a tmp file to get it back to the parent process
     if rank == world_size-1:
-        pickle.dump(stats, open(TMP_FILE, 'wb+'), protocol=pickle.HIGHEST_PROTOCOL)
+        f = open(TMP_FILE, 'wb+')
+        pickle.dump(stats, f, protocol=pickle.HIGHEST_PROTOCOL)
+        f.close()
 
 
 def train(rrefs, kwargs, rnn_constructor, rnn_args, impl):
@@ -556,7 +567,7 @@ def run_all(workers, rnn_constructor, rnn_args, worker_constructor,
 
     # Retrieve stats, and cleanup temp file
     stats = pickle.load(open(TMP_FILE, 'rb'))
-    #os.remove(TMP_FILE)
+    os.remove(TMP_FILE)
 
     print(stats)
     return stats
