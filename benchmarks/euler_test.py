@@ -1,16 +1,18 @@
 from copy import deepcopy
 import argparse
+import json 
 
 import pandas as pd
 from sklearn.metrics import roc_auc_score as auc_score,\
-     average_precision_score as ap_score
+     average_precision_score as ap_score, \
+     precision_recall_fscore_support as cls_scores 
 import torch 
 from torch.optim import Adam
 
 import generators as g
 import loaders.load_data as ld
 from models.euler_serial import EulerGCN
-from utils import get_score
+from utils import get_score, get_optimal_cutoff
 
 torch.set_num_threads(32)
 
@@ -59,6 +61,8 @@ def train(model, data, end_tr, epochs=1500, pred=False, nratio=1, lr=0.01):
                 st, sf = model.score_fn(p,n,z)
                 sscores = get_score(st, sf)
 
+                min_val = get_optimal_cutoff(st, sf, verbose=False)
+
                 print(
                     '[%d] Loss: %0.4f  \n\tSt %s ' %
                     (e, trloss, fmt_score(sscores) ),
@@ -102,6 +106,9 @@ def train(model, data, end_tr, epochs=1500, pred=False, nratio=1, lr=0.01):
                 if no_improvement == PATIENCE:
                     print("Early stopping...\n")
                     break
+
+            test_cert(model, data, pred, thresh=min_val)
+            print()
 
     return best[1]
 
@@ -159,7 +166,7 @@ def test(model, data, pred, end_tr):
         }
 
 @torch.no_grad()
-def test_cert(model, data, pred, h0):
+def test_cert(model, data, pred, h0=None, thresh=None):
     model.eval()
     zs = model(data.xs, data.eis, data.all, h_0=h0)
     
@@ -170,12 +177,24 @@ def test_cert(model, data, pred, h0):
 
     ys = torch.cat(ys)
     preds = model.score_all(zs, eis)
+    
+    # Need to invert, since 1 marks edges that should be non-edges
+    # not traditional LP
+    preds = 1-preds 
 
     auc = auc_score(ys, preds)
     ap = ap_score(ys, preds)
+    stats = {'auc':auc, 'ap':ap}
+    print("AUC: %f, AP: %f" % (auc,ap)) 
 
-    print("AUC:\t%f\tAP:\t%f" % (auc,ap)) 
-    return {'auc':auc, 'ap':ap}
+    if thresh is not None:
+        y_hat = (preds > 1-thresh).long()
+        pr,re,f1,_ = cls_scores(ys, y_hat, zero_division=0.)
+        pr=pr[1]; re=re[1]; f1=f1[1]
+        stats['pr'] = pr; stats['re'] = re; stats['f1'] = f1 
+        print('Pr: %f, Re: %f, F1: %f' % (pr,re,f1))
+
+    return stats
 
 
 def get_args():
@@ -207,7 +226,7 @@ def get_args():
     parser.add_argument(
         '--days',
         type=int, 
-        default=1
+        default=7
     )
     parser.add_argument(
         '--directed',
@@ -269,17 +288,18 @@ def cert_benchmark():
     args = get_args()
     outf = 'output/cert_classify.txt'
 
-    data = quick_build(days=args.days, classify=True)
+    #data = quick_build(days=args.days, classify=True)
 
     #tr = torch.load(CERT+'r4.2_tr.pt')
     #te = torch.load(CERT+'r4.2_te.pt')
-    #data = torch.load(CERT+'r4.2_classify.pt')
+    data = torch.load(CERT+'r4.2_classify.pt')
 
     model = EulerGCN(
         data.x.size(1), args.hidden, 
         args.embedding, lstm=args.lstm,
         add_bidirect=not args.directed
     )
+
     stats = []
     for _ in range(NUM_TESTS):
         eval_model = train(
@@ -290,7 +310,14 @@ def cert_benchmark():
         )
         
         eval_model.eval()
-        stats.append(test_cert(eval_model, data, args.predict, None))
+        
+        with torch.no_grad():
+            zs = eval_model(data.x, data.eis, data.tr)
+
+        p,n,z = g.link_detection(data, data.va, zs)
+        st, sf = model.score_fn(p,n,z)
+        min_val = get_optimal_cutoff(st, sf)
+        stats.append(test_cert(eval_model, data, args.predict, thresh=min_val))
         
 
     df = pd.DataFrame(stats)

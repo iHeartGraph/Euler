@@ -231,7 +231,7 @@ def torchify_classification(results, campaign, val_size=0.05, days=1):
         tr = torch.zeros(te.size()).bool()
         
         # All benign samples to be 85/5/10 split 
-        b = ~te.nonzero().squeeze(-1)
+        b = (~te).nonzero().squeeze(-1)
         tr_end = int(b.size(0)*0.85)
         va_end = tr_end + int(b.size(0)*0.05)
         perm = torch.randperm(b.size(0))
@@ -252,10 +252,11 @@ def torchify_classification(results, campaign, val_size=0.05, days=1):
         etype=ets,
         masks=masks,
         x=xs,
+        y=ys,
         nmap=nmap,
         emap=emap,
     ) 
-    torch.save(tr, DATA+campaign+'_classify.pt')
+    torch.save(data, DATA+campaign+'_classify.pt')
     return data 
 
 def split(ei, etype, ts, y, snapshot_size=60*60*24):
