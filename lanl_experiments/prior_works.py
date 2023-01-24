@@ -109,14 +109,17 @@ def train(model: nn.Module, data: TData):
         model.train()
         opt.zero_grad()
         
+        print("Forward")
         start_t = time()
         args = model.forward(data, TData.TRAIN)    
         zs = args[0] if isinstance(model, VGRNN) else args
         
+        print("Generating edges")
         p = [data.ei_masked(TData.TRAIN, i) for i in range(data.T)]
         n = data.get_negative_edges(TData.TRAIN, nratio=10)
         loss = model.calc_loss(p,n,zs)
 
+        print("Backward")
         loss.backward()
         opt.step() 
         elapsed = time() - start_t
@@ -277,11 +280,15 @@ def run_all(is_pred, iter):
     model, h0, tpe = train(model, data)
     tr_time = time() - st
 
+    '''
     data = LOADER(8, start=VAL_START, end=VAL_END, delta=DELTA)
     h0 = find_cutoff(model, data, h0)
 
     data = LOADER(8, start=TE_START, end=TE_END, delta=DELTA, is_test=True)
     stats = test(model, data, h0)
+    '''
+
+    stats = dict()
     stats['tpe'] = tpe 
     stats['tr_time'] = tr_time
 
@@ -297,8 +304,8 @@ PRED =  False if (len(sys.argv) <= 2) else \
         False 
 
 if __name__ == '__main__':
-    torch.set_num_threads(8)
-    stats = [run_all(PRED, i) for i in range(5)]
+    torch.set_num_threads(16)
+    stats = [run_all(PRED, i) for i in range(1)]
     stats = pd.DataFrame(stats)
     mean = stats.mean().to_csv().replace(',', '\t')
     full = stats.to_csv(index=False, header=False).replace(",", ', ')
