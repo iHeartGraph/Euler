@@ -304,7 +304,7 @@ PRED =  False if (len(sys.argv) <= 2) else \
 
 if __name__ == '__main__':
     torch.set_num_threads(16)
-    stats = [run_all(PRED, i) for i in range(1)]
+    stats = [run_all(PRED, i) for i in range(5)]
     stats = pd.DataFrame(stats)
     mean = stats.mean().to_csv().replace(',', '\t')
     full = stats.to_csv(index=False, header=False).replace(",", ', ')
