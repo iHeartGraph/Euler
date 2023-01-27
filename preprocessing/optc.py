@@ -2,15 +2,43 @@ from collections import defaultdict
 import gzip 
 import glob 
 import json 
+import os 
 
+from dateutil import parser 
 from joblib import Parallel, delayed
 import pickle
 from tqdm import tqdm 
 
 RAW_OPTC = '/home/ead/datasets/OpTC/ecar/'
 TRAIN = 'benign_gz/'
-TEST = 'evaluation_gz/'
+TEST = 'eval_gz/'
+SPLIT = 'flow_split/'
 PARSED = 'flow_starts'
+
+# From checking the first line of each file
+FIRST_TS = 1568676710.696
+get_ts = lambda x : parser.parse(x[:-1]).timestamp()
+
+def label_line():
+    pass # TODO 
+
+def split(fname, i,tot):
+    '''
+    Takes lines from file formatted as 
+        src_ip, dst_ip, ts
+    Outputs lines in file (minutes since start//100).csv
+        ts, src_uuid, dst_uuid, minute, label
+    
+    Since all files span huge timespans it's unlikely that both 
+    would be writing to the same file at once... but not impossible.
+    May need to impliment locking or something TODO 
+    '''
+    in_f = open(fname, 'r')
+    line = in_f.readline()
+    prog = tqdm(desc='%d/%d' % (i+1, tot))
+
+    while line:
+        src,dst,ts = line.split(',')
 
 def ignore(ip):
     if (
@@ -37,11 +65,18 @@ def parse_raw(fold=TRAIN, out_f='nmap.pkl'):
     maps = Parallel(n_jobs=64, prefer='processes')(
         delayed(copy_one)(f,i,len(files)) for i,f in enumerate(files)
     )
-    node_map = maps.pop()
-    [node_map.update(m) for m in maps]
+    
+    # Append to existing nodemap if possible
+    # (e.g. running on test set after tr set)
+    if os.path.exists(out_f):
+        with open(out_f, 'rb') as f:
+            node_map = pickle.load(f)
+    else:
+        node_map = maps.pop()
 
+    [node_map.update(m) for m in maps]
     with open(out_f, 'wb+') as f:
-        pickle.dump(out_f, f)
+        pickle.dump(node_map, f)
 
 def copy_one(in_f, i, tot):
     ip_map = dict()
@@ -97,5 +132,7 @@ def copy_one(in_f, i, tot):
 
     return ip_map
 
+
+
 if __name__ == '__main__':
-    parse_raw()
+    parse_raw(fold=TEST)

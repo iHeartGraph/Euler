@@ -31,6 +31,8 @@ F_DELTA = 100
 # For convinience pulled out of nodemap file
 NUM_NODES = 1114
 NUM_ANOMS = 21641
+
+# Times expressed in minutes since start of data 
 TIMES = {
     'first_anom': 9559, # About 6.5 days in
     'last_anom': 12300, # About 8.5 days in
