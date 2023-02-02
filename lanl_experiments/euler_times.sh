@@ -1,7 +1,12 @@
-python run.py -w 16 -e GCN --tests 5 -i TEDGE
-python run.py -w 16 -e SAGE -r LSTM --tests 5 -i TEDGE
-python run.py -w 16 -e GAT -r LSTM --tests 5 -i TEDGE
-python run.py -w 16 -e GCN -r NONE --tests 5 -i TEDGE
-python run.py -w 16 -e SAGE -r NONE --tests 5 -i TEDGE
-python run.py -w 16 -e GAT -r NONE --tests 5 -i TEDGE
-python run.py -w 16 -e GCN --tests 5 -i TEDGE
+python run.py -w 16 --dataset OpTC 
+python run.py -w 16 --dataset OpTC -e SAGE
+python run.py -w 16 --dataset OpTC -e GAT
+python run.py -w 16 --dataset OpTC -r LSTM 
+python run.py -w 16 --dataset OpTC -r LSTM -e SAGE
+python run.py -w 16 --dataset OpTC -r LSTM -e GAT 
+python run.py -w 16 --dataset OpTC -i TEDGE
+python run.py -w 16 --dataset OpTC -e SAGE -i TEDGE
+python run.py -w 16 --dataset OpTC -e GAT -i TEDGE
+python run.py -w 16 --dataset OpTC -r LSTM -i TEDGE
+python run.py -w 16 --dataset OpTC -r LSTM -e SAGE -i TEDGE
+python run.py -w 16 --dataset OpTC -r LSTM -e GAT -i TEDGE

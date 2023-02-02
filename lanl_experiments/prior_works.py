@@ -18,6 +18,7 @@ from models.serial_models import \
     SparseEGCN_H as EGCN_H, \
     SparseEGCN_O as EGCN_O
 import loaders.load_lanl as ld 
+import loaders.load_optc as ld_optc
 from loaders.tdata import TData
 from utils import get_optimal_cutoff, get_score
 
@@ -254,6 +255,7 @@ def test(model: nn.Module, data: TData, h0: torch.Tensor):
         'uw_ap': uw_ap
     }
 
+'''
 DELTA=  int(60*60 * 0.5) if len(sys.argv) < 4 \
         else int(60*60* float(sys.argv[3]))
 TR_START=0
@@ -267,13 +269,27 @@ TE_END = 5011199
 
 LOADER = ld.load_lanl_dist 
 OUT_F = 'results/vgrnn_updated.txt'
+'''
+# For OpTC test
+DELTA=  30
+TR_START=0
+TR_END=ld_optc.TIMES['tr_end']
+
+VAL_START=ld_optc.TIMES['val_start']
+VAL_END=ld_optc.TIMES['val_end']
+
+TE_START=ld_optc.DAY1[0]
+TE_END = ld_optc.DAY3[1]
+
+LOADER = ld_optc.load_optc_dist 
+OUT_F = 'results/prior_works_optc.txt'
 
 def run_all(is_pred, iter):
     print() 
     print(iter)
     print() 
 
-    data = LOADER(8, start=TR_START, end=TR_END, delta=DELTA)
+    data = LOADER(16, start=TR_START, end=TR_END, delta=DELTA)
     model = MODEL(data.xs.size(1), 32, 16, pred=is_pred)
 
     st = time()

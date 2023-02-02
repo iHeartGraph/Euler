@@ -77,11 +77,7 @@ class TData(Data):
             
             num_pos = self.ei_sizes[t][enum]
             negs.append(
-                fast_negative_sampling(
-                    pos, 
-                    int(num_pos*nratio),
-                    self.num_nodes
-                )
+                torch.randint(pos.min(), pos.max(), pos.size())
             )
 
         return negs

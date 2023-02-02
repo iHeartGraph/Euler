@@ -146,7 +146,7 @@ def get_args():
     elif args.dataset.startswith('O'):
         args.loader = optc.load_optc_dist
         args.tr_start = 0 #optc.TIMES['val_start']
-        args.tr_end = optc.TIMES['val_end']
+        args.tr_end = optc.TIMES['tr_end']
         args.val_times = None #(optc.TIMES['val_start'], optc.TIMES['val_end'])
         args.te_times = [optc.DAY1, optc.DAY2, optc.DAY3, optc.ALL]
         args.delta = int(args.delta * 60)
